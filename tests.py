@@ -45,9 +45,21 @@ class Tests(unittest.TestCase):
 
     def test_ops_get_availability(self):
         cursor = MagicMock()
-        cursor.fetchone.side_effect = [
-            [10, 1] + 15 * [0],
-            [1] + 15 * [0]
+        cursor.fetchone.return_value = [10] + 16 * [1]
+        cursor.fetchall.return_value = [
+        ]
+
+        res = ops.get_availability(cursor, 'E1', '2024-05-17')
+
+        self.assertTrue(res[0] == 10)
+        self.assertTrue(np.all(res[1] == np.ones(16)))
+
+        cursor.fetchone.return_value = [10, 1] + 15 * [0]
+        cursor.fetchall.return_value = [
+            {
+                'booked_start_time': '09:10',
+                'booked_end_time': '09:29',
+            }
         ]
 
         res = ops.get_availability(cursor, 'E1', '2024-05-17')
@@ -55,17 +67,22 @@ class Tests(unittest.TestCase):
         self.assertTrue(res[0] == 10)
         self.assertTrue(np.all(res[1] == np.zeros(16)))
 
-        cursor.fetchone.side_effect = [
-            [10, 1, 1] + 14 * [0],
-            [1] + 15 * [0]
+        cursor.fetchone.return_value = [10] + 16 * [1]
+        cursor.fetchall.return_value = [
+            {
+                'booked_start_time': '09:10',
+                'booked_end_time': '09:45',
+            },
+            {
+                'booked_start_time': '11:10',
+                'booked_end_time': '12:30',
+            }
         ]
 
         res = ops.get_availability(cursor, 'E1', '2024-05-17')
-
+        target = np.array([0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1])
         self.assertTrue(res[0] == 10)
-        self.assertTrue(res[1][0] == 0)
-        self.assertTrue(res[1][1] == 1)
-        self.assertTrue(np.all(res[1][2:] == np.zeros(14)))
+        self.assertTrue(np.all(res[1] == target))
 
     def test_insert_engineer_data(self):
         data = {
@@ -87,15 +104,16 @@ class Tests(unittest.TestCase):
         }
 
         cursor = MagicMock()
-        cursor.fetchone.side_effect = [
-            [10] + 16 * [1],
-            16 * [0]
-        ]
+        cursor.fetchone.return_value = [10] + 16 * [1]
+        cursor.fetchall.return_value = []
         init.insert_inspection_data(cursor, data)
 
-        cursor.fetchone.side_effect = [
-            [10] + 16 * [1],
-            [0, 0, 1] + 13 * [0]
+        cursor.fetchone.return_value = [10] + 16 * [1]
+        cursor.fetchall.return_value = [
+            {
+                'booked_start_time': '10:10',
+                'booked_end_time': '10:50',
+            }
         ]
 
         with self.assertRaises(Exception):

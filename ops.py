@@ -30,8 +30,20 @@ def interval_to_vec(start: str, end: str):
     return vec
 
 
+def get_bookings(cursor, engineer_id, inspection_date):
+    query = '''
+            SELECT *
+            FROM BookedInspectionView
+            WHERE engineer_id = ? AND inspection_date = ?
+        '''
+
+    cursor.execute(query, (engineer_id, inspection_date))
+
+    return cursor.fetchall()
+
+
 def get_availability(cursor, engineer_id, inspection_date):
-    columns = map(availability_column_from_iter, iter_slots())
+    columns = list(map(availability_column_from_iter, iter_slots()))
     query = f'''
             SELECT id, {','.join(columns)}
             FROM EngineerAvailability
@@ -40,20 +52,28 @@ def get_availability(cursor, engineer_id, inspection_date):
             LIMIT 1
         '''
 
-    given_datetime = datetime.datetime.strptime(inspection_date, '%Y-%m-%d')
-
-    cursor.execute(query, (engineer_id, given_datetime))
+    cursor.execute(query, (engineer_id, inspection_date))
     engineer_row = cursor.fetchone()
+
+    if engineer_row is None:
+        return -1, np.zeros(16)
+
     engineer_row_id = engineer_row[0]
     engineer_vec = np.array(engineer_row[1:])
 
-    query = f'''
-            SELECT {','.join([f'SUM({c})' for c in columns])}
-            FROM BookedInspection
-            WHERE engineer_id = ? AND inspection_date = ?
-        '''
+    booked_vec = np.zeros(16)
+    for row in get_bookings(cursor, engineer_id, inspection_date):
+        inspection_vec = interval_to_vec(
+            row['booked_start_time'], row['booked_end_time']
+        )
+        booked_vec += inspection_vec
 
-    cursor.execute(query, (engineer_id, given_datetime))
-    booked_vec = np.array(cursor.fetchone())
+    return engineer_row_id, engineer_vec - booked_vec
 
-    return engineer_row_id, np.maximum(0, engineer_vec - booked_vec)
+
+def get_inspections(cursor, from_date, to_date):
+    query = '''SELECT * from BookedInspectionView
+            WHERE inspection_date BETWEEN ? and ?
+            '''
+    cursor.execute(query, (from_date, to_date))
+    return cursor.fetchall()

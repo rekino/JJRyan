@@ -42,15 +42,22 @@ def create_tables(filename):
         );
         """,
         """
-        CREATE TABLE BookedInspection (
+        CREATE TABLE IF NOT EXISTS BookedInspection (
             id INTEGER PRIMARY KEY,
             inspection_id INTEGER,
             engineer_id INTEGER,
-            inspection_date: TEXT,
-            booked_start_time: TEXT,
-            booked_end_time: TEXT
+            inspection_date TEXT,
+            booked_start_time TEXT,
+            booked_end_time TEXT,
             FOREIGN KEY (engineer_id) REFERENCES EngineerAvailability(id)
         );
+        """,
+        """
+        CREATE VIEW BookedInspectionView AS
+        SELECT i.id, i.inspection_id, e.engineer_id, i.inspection_date,
+            i.booked_start_time, i.booked_end_time
+        FROM BookedInspection i
+        INNER JOIN EngineerAvailability e ON e.id = i.engineer_id;
         """
     ]
 
@@ -61,7 +68,7 @@ def create_tables(filename):
                 cursor.execute(statement)
             conn.commit()
     except sqlite3.Error as e:
-        print(e)
+        print('create_tables:', e)
 
 
 def insert_engineer_data(cursor, engineer_data):
@@ -95,6 +102,7 @@ def insert_inspection_data(cursor, inspection_data):
         raise Exception('The engineer is not available for inspection.')
 
     data = (
+        None,
         inspection_data['inspection_id'],
         availability_row_id,
         inspection_data['inspection_date'],
@@ -104,7 +112,7 @@ def insert_inspection_data(cursor, inspection_data):
 
     cursor.execute('''
         INSERT INTO BookedInspection
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?)
     ''', data)
 
 
@@ -120,20 +128,20 @@ def read_json_then(folder_path, side_effect):
         try:
             side_effect(cursor, data)
         except Exception as e:
-            print(e)
+            print(json_file, e)
 
 
 if __name__ == '__main__':
     db_name = 'inspection_booking.db'
 
     create_sqlite_database(db_name)
-    create_tables()
+    create_tables(db_name)
 
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    availability_folder_path = './engineer_availability'
-    inspection_folder_path = './inspections'
+    availability_folder_path = './data/engineer_availability'
+    inspection_folder_path = './data/inspections'
 
     read_json_then(availability_folder_path, insert_engineer_data)
     read_json_then(inspection_folder_path, insert_inspection_data)
