@@ -132,7 +132,7 @@ def read_json_then(folder_path, side_effect):
 
 
 if __name__ == '__main__':
-    db_name = 'inspection_booking.db'
+    db_name = './db/inspection_booking.db'
 
     create_sqlite_database(db_name)
     create_tables(db_name)

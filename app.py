@@ -3,6 +3,8 @@ import sqlite3
 
 import ops
 
+db_name = './db/inspection_booking.db'
+
 app = Flask(__name__)
 
 @app.route('/booking', methods=['GET'])
@@ -15,7 +17,7 @@ def get_bookings():
     if engineer_id is None:
         return 'Please provide a date for inspections.', 402
 
-    with sqlite3.connect('inspection_booking.db') as conn:
+    with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
         res = ops.get_bookings(cursor, engineer_id, inspection_date)
 
@@ -32,7 +34,7 @@ def get_inspections():
     if to_date is None:
         return 'Please provide the end of the interval.', 402
 
-    with sqlite3.connect('inspection_booking.db') as conn:
+    with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
         res = ops.get_inspections(cursor, from_date, to_date)
 
