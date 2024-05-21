@@ -47,3 +47,12 @@ A Dockerfile is provided.
 
 ## Supporting Information
 The challenge specifies an `available_day` as well as part of the engineer schedule. However, I have decided to remove it since its solution is similar to the situation of time slots. In other words, by increasing and decreasing the period of time slots any interval of time could be turned into the vectors that are used in the solution. Similarly, I do not repeat the solution for keeping the historical data for later analytics on the `Inspection` table since this as well is completely analogous to the `EngineerAvailability` case and a timestamp column should be all that is needed to implement it.
+
+## Update 5/21/2024
+It was decided that some endpoints get added to the application and add degrees of freedom in engineeres availability throughout the week. 
+
+Adding degrees of freedom with regrads to engineering availability is simply more of the same solution; a column gets added to the engineers availability that stores the corresponding day of the week and let `engineer_id` and `day_of_week` act similar to a composite unique key.
+
+The solution for computing utilization of an engineer is a little unintuitive. The main issue is dealing with the irregularities that are introduced due to the introduction of the `day_of_week` column. The idea is to compute a heuristic value for the total availability of an engineer between two dates based on the initial availability of the engineer, and then add a correction to the value which makes it accurate as we process all of the availability vectors that are filtered by the query.
+
+Suppose that the availability of engineers in each day of the week at the start of the interval is known and call it `a`. Tt can be deduced that, if the availability does not change by the end of the interval, then the total availability of the enginner would be `a[day, 0] * c[day, start, end]` in which `c[day, start, end]` counts how many of that day happens in the interval. However, it is possible that the availability changes. To correct the hueristic, we will find the closest update to the start of the interval and fix the value by `e = (a[day, 1] - a[day, 0]) * c[day, timestamp, end]`. It can be seen that `a[day, 0] * c[day, start, end] + e = a[day, 1] *+* c[day, timestamp, end] + a[day, 0 ] * c[day,start, timestamp]`. By induction, it should be that after processing every row the computed value is exact.
