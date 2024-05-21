@@ -6,6 +6,7 @@ import ops
 
 
 def create_sqlite_database(filename):
+    conn = False
     try:
         conn = sqlite3.connect(filename)
         print(f"SQLite version: {sqlite3.sqlite_version}")
@@ -22,6 +23,7 @@ def create_tables(filename):
         CREATE TABLE IF NOT EXISTS EngineerAvailability (
             id INTEGER PRIMARY KEY,
             engineer_id TEXT NOT NULL,
+            day_of_week TEXT NOT NULL,
             H09M00 BOOL,
             H09M30 BOOL,
             H10M00 BOOL,
@@ -75,13 +77,14 @@ def insert_engineer_data(cursor, engineer_data):
     data = (
         None,
         engineer_data['engineer_id'],
+        engineer_data['available_day'],
         *engineer_data['available_slots'],
         engineer_data['updated_timestamp']
     )
 
-    cursor.execute('''
+    cursor.execute(f'''
         INSERT INTO EngineerAvailability
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES ({','.join(20 * ['?'])})
     ''', data)
 
 
@@ -134,6 +137,9 @@ def read_json_then(folder_path, side_effect):
 if __name__ == '__main__':
     db_name = './db/inspection_booking.db'
 
+    if os.path.exists(db_name):
+        os.remove(db_name)  # Delete the file
+
     create_sqlite_database(db_name)
     create_tables(db_name)
 
@@ -145,6 +151,6 @@ if __name__ == '__main__':
 
     read_json_then(availability_folder_path, insert_engineer_data)
     read_json_then(inspection_folder_path, insert_inspection_data)
-
     conn.commit()
+
     conn.close()
