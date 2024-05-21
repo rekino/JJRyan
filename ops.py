@@ -1,6 +1,30 @@
 import numpy as np
 from datetime import datetime, time
 from itertools import product
+from collections import defaultdict
+
+
+week_days = {
+    'Monday': 0,
+    'Tuesday': 1,
+    'Wednesday': 2,
+    'Thursday': 3,
+    'Friday': 4,
+    'Saturday': 5,
+    'Sunday': 6
+}
+
+
+def count_specific_day_of_week(start_date, end_date, target_day):
+    total_days = (end_date - start_date).days
+    num_occurrences = total_days // 7
+
+    target_day_index = (target_day - 1) % 7
+
+    if start_date.weekday() == target_day_index:
+        num_occurrences += 1
+
+    return num_occurrences
 
 
 def iter_slots():
@@ -90,3 +114,78 @@ def get_inspections(cursor, from_date, to_date):
             '''
     cursor.execute(query, (from_date, to_date))
     return cursor.fetchall()
+
+
+def count_availability(cursor, engineer_id, from_date, to_date):
+    from_obj = datetime.strptime(from_date, '%Y-%m-%d')
+    to_obj = datetime.strptime(to_date, '%Y-%m-%d')
+
+    query = '''
+            SELECT *
+            FROM EngineerAvailability
+            WHERE engineer_id = ? AND timestamp < ?
+            GROUP BY day_of_week
+            ORDER BY timestamp
+        '''
+    cursor.execute(query, (engineer_id, from_date))
+    availability = cursor.fetchall()
+
+    total = defaultdict(lambda: 0)
+    perv_availability = defaultdict(lambda: 0)
+    for row in availability:
+        count = count_specific_day_of_week(from_obj, to_obj, week_days[row[2]])
+        slots_available = np.array(row[3:19]).sum()
+        total[row[2]] = slots_available * count
+        perv_availability[row[2]] = slots_available
+
+    query = '''
+            SELECT *
+            FROM EngineerAvailability
+            WHERE engineer_id = ? AND timestamp BETWEEN ? AND ?
+            ORDER BY timestamp
+        '''
+    cursor.execute(query, (engineer_id, from_date, to_date))
+    availability = cursor.fetchall()
+
+    for row in availability:
+        date_obj = datetime.strptime(row[19], '%Y-%m-%d %H:%M:%S')
+        count = count_specific_day_of_week(date_obj, to_obj, week_days[row[2]])
+        slots_available = np.array(row[3:19]).sum()
+        total[row[2]] += (slots_available - perv_availability[row[2]]) * count
+        perv_availability[row[2]] = slots_available
+
+    return total
+
+
+def count_billable(cursor, engineer_id, from_date, to_date):
+    query = '''
+            SELECT *
+            FROM BookedInspectionView
+            WHERE engineer_id = ? AND inspection_date BETWEEN ? AND ?
+        '''
+    cursor.execute(query, (engineer_id, from_date, to_date))
+    inspections = cursor.fetchall()
+
+    total = 0
+    for row in inspections:
+        total += interval_to_vec(row[4], row[5]).sum()
+
+    return total
+
+
+def get_utilization(cursor, engineer_id, from_date, to_date):
+    availability = count_availability(cursor, engineer_id, from_date, to_date)
+    availability = sum(availability.values())
+    billable = count_billable(cursor, engineer_id, from_date, to_date)
+
+    return billable / availability
+
+
+if __name__ == '__main__':
+    import sqlite3
+
+    db_name = './db/inspection_booking.db'
+
+    with sqlite3.connect(db_name) as conn:
+        cursor = conn.cursor()
+        print(get_utilization(cursor, 'E123', '2023-04-20', '2025-04-29'))

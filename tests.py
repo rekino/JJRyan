@@ -1,5 +1,5 @@
 import unittest
-from datetime import time
+from datetime import time, datetime, timedelta
 import numpy as np
 from unittest.mock import MagicMock
 
@@ -8,6 +8,21 @@ import init
 
 
 class Tests(unittest.TestCase):
+    def test_ops_count_specific_day_of_week(self):
+        start = datetime.now()
+
+        end = start + timedelta(7)
+        count = ops.count_specific_day_of_week(start, end, start.weekday())
+        self.assertEqual(count, 1)
+
+        end = start + timedelta(6)
+        count = ops.count_specific_day_of_week(start, end, start.weekday())
+        self.assertEqual(count, 0)
+
+        end = start + timedelta(8)
+        count = ops.count_specific_day_of_week(start, end, start.weekday())
+        self.assertEqual(count, 1)
+
     def test_ops_iter_slots(self):
         slots = list(ops.iter_slots())
 
