@@ -87,6 +87,7 @@ class Tests(unittest.TestCase):
     def test_insert_engineer_data(self):
         data = {
             "engineer_id": "E123",
+            "available_day": "Thursday",
             "available_slots": "1100110011001100",
             "updated_timestamp": "2024-05-16 10:30:00"
         }
